@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CopyAI – SNS投稿文ジェネレーター</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e0f;
+    --bg2: #18181a;
+    --bg3: #222224;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --text2: #909090;
+    --text3: #555;
+    --accent: #6ee7b7;
+    --accent-bg: rgba(110,231,183,0.1);
+    --accent-border: rgba(110,231,183,0.25);
+    --danger: #f87171;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+  }
+
+  /* Header */
+  .site-header { margin-bottom: 2.5rem; }
+  .logo { display: flex; align-items: center; gap: 8px; margin-bottom: 0.5rem; }
+  .logo-mark {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #0e0e0f;
+  }
+  .logo-name { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+  .site-header p { font-size: 13px; color: var(--text2); }
+
+  /* API Key */
+  .api-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .api-section-header {
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; user-select: none;
+  }
+  .api-section-title { font-size: 13px; font-weight: 500; color: var(--text2); }
+  .api-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+  .api-status.ok { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
+  .api-status.ng { background: rgba(248,113,113,0.1); color: var(--danger); border: 1px solid rgba(248,113,113,0.2); }
+  .api-body { margin-top: 10px; display: none; }
+  .api-body.open { display: block; }
+  .api-hint { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+  .api-hint a { color: var(--accent); text-decoration: none; }
+  .api-hint a:hover { text-decoration: underline; }
+  .api-input-row { display: flex; gap: 8px; }
+  .api-input-row input {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px; font-size: 13px;
+    color: var(--text); outline: none; font-family: monospace;
+    letter-spacing: 0.03em;
+  }
+  .api-input-row input:focus { border-color: var(--border2); }
+  .btn-small {
+    padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border2);
+    background: transparent; color: var(--text); font-size: 13px; cursor: pointer;
+    white-space: nowrap; transition: background 0.15s;
+  }
+  .btn-small:hover { background: var(--bg3); }
+
+  /* Form */
+  .form { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .label { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+
+  textarea {
+    width: 100%; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 14px; font-size: 14px;
+    color: var(--text); font-family: inherit; resize: vertical; min-height: 90px;
+    outline: none; transition: border-color 0.15s; line-height: 1.6;
+  }
+  textarea:focus { border-color: var(--border2); }
+  textarea::placeholder { color: var(--text3); }
+
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border);
+    font-size: 13px; cursor: pointer; color: var(--text2); background: transparent;
+    transition: all 0.15s; user-select: none;
+  }
+  .chip:hover { border-color: var(--border2); color: var(--text); }
+  .chip.on { background: var(--accent-bg); border-color: var(--accent-border); color: var(--accent); font-weight: 500; }
+
+  .gen-btn {
+    width: 100%; padding: 13px; border-radius: var(--radius);
+    border: none; background: var(--accent); color: #0e0e0f;
+    font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: -0.01em;
+  }
+  .gen-btn:hover { opacity: 0.88; }
+  .gen-btn:active { transform: scale(0.99); }
+  .gen-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  /* Results */
+  .results { margin-top: 1.75rem; display: flex; flex-direction: column; gap: 10px; }
+  .divider { height: 1px; background: var(--border); margin: 1.5rem 0 0; }
+
+  .result-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+    animation: fadeUp 0.3s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .result-card:nth-child(2) { animation-delay: 0.07s; }
+  .result-card:nth-child(3) { animation-delay: 0.14s; }
+
+  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .result-label { font-size: 11px; font-weight: 500; color: var(--text2); letter-spacing: 0.05em; text-transform: uppercase; }
+  .copy-btn {
+    font-size: 11px; color: var(--text2); border: 1px solid var(--border);
+    border-radius: 5px; padding: 3px 10px; cursor: pointer; background: transparent;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--border2); }
+  .copy-btn.done { color: var(--accent); border-color: var(--accent-border); }
+
+  .result-text { font-size: 14px; line-height: 1.75; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+
+  /* Loading */
+  .loading { display: flex; align-items: center; gap: 10px; padding: 1.25rem 0; color: var(--text2); font-size: 14px; }
+  .dots { display: flex; gap: 4px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); opacity: 0.4; animation: blink 1.2s infinite; }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+  .error-msg { color: var(--danger); font-size: 13px; padding: 0.75rem 0; }
+
+  /* Promo */
+  .promo {
+    margin-top: 2rem; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .promo-left { }
+  .promo-tag { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 2px; }
+  .promo-title { font-size: 14px; font-weight: 500; }
+  .promo-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .promo-price { text-align: right; white-space: nowrap; }
+  .promo-amount { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .promo-period { font-size: 11px; color: var(--text2); }
+
+  /* Footer */
+  .footer { margin-top: 3rem; font-size: 12px; color: var(--text3); text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="site-header">
+    <div class="logo">
+      <div class="logo-mark">C</div>
+      <span class="logo-name">CopyAI</span>
+    </div>
+    <p>商品・サービスを入力するだけで、SNS投稿文をAIが自動生成</p>
+  </header>
+
+  <!-- API Key -->
+  <div class="api-section">
+    <div class="api-section-header" onclick="toggleApiPanel()">
+      <span class="api-section-title">⚙ Gemini APIキー設定</span>
+      <span class="api-status ng" id="api-status">未設定</span>
+    </div>
+    <div class="api-body" id="api-body">
+      <p class="api-hint">
+        <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> で無料取得できます（Googleアカウントのみ）
+      </p>
+      <div class="api-input-row">
+        <input type="password" id="api-key-input" placeholder="AIza..." />
+        <button class="btn-small" onclick="saveKey()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="form">
+    <div>
+      <div class="label">商品・サービス・伝えたいこと</div>
+      <textarea id="topic" placeholder="例：渋谷の小さなカフェ。手作りのティラミスが自慢。今週末からモーニングを始めます。テラス席あり。"></textarea>
+    </div>
+
+    <div>
+      <div class="label">プラットフォーム</div>
+      <div class="chip-row" id="plat">
+        <div class="chip on" data-v="Twitter/X">Twitter / X</div>
+        <div class="chip" data-v="Instagram">Instagram</div>
+        <div class="chip" data-v="LINE公式アカウント">LINE公式</div>
+        <div class="chip" data-v="Facebook">Facebook</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="label">トーン</div>
+      <div class="chip-row" id="tone">
+        <div class="chip on" data-v="フレンドリーで親しみやすい">フレンドリー</div>
+        <div class="chip" data-v="プロフェッショナルで信頼感がある">プロ</div>
+        <div class="chip" data-v="ユーモアがあって面白い">ユーモア</div>
+        <div class="chip" data-v="感動的でエモーショナル">エモ</div>
+        <div class="chip" data-v="バズりやすくインパクトがある">バズ狙い</div>
+      </div>
+    </div>
+
+    <button class="gen-btn" id="gen-btn" onclick="generate()">✦ 投稿文を生成する</button>
+  </div>
+
+  <div id="output"></div>
+
+  <!-- Promo -->
+  <div class="promo">
+    <div class="promo-left">
+      <div class="promo-tag">Pro Plan</div>
+      <div class="promo-title">無制限生成 + ハッシュタグ分析</div>
+      <div class="promo-desc">スケジュール投稿・競合分析・チーム共有</div>
+    </div>
+    <div class="promo-price">
+      <div class="promo-amount">¥980</div>
+      <div class="promo-period">/ 月</div>
+    </div>
+  </div>
+
+  <footer class="footer">Powered by Google Gemini – 完全無料で使えます</footer>
+
+</div>
+
+<script>
+  let apiKey = localStorage.getItem('gemini_key') || '';
+  let platform = 'Twitter/X';
+  let tone = 'フレンドリーで親しみやすい';
+
+  function updateStatus() {
+    const el = document.getElementById('api-status');
+    if (apiKey) {
+      el.textContent = '設定済み ✓'; el.className = 'api-status ok';
+    } else {
+      el.textContent = '未設定'; el.className = 'api-status ng';
+    }
+  }
+  updateStatus();
+  if (!apiKey) {
+    document.getElementById('api-body').classList.add('open');
+  }
+
+  function toggleApiPanel() {
+    document.getElementById('api-body').classList.toggle('open');
+  }
+
+  function saveKey() {
+    const v = document.getElementById('api-key-input').value.trim();
+    if (!v) return;
+    apiKey = v;
+    localStorage.setItem('gemini_key', v);
+    document.getElementById('api-key-input').value = '';
+    document.getElementById('api-body').classList.remove('open');
+    updateStatus();
+  }
+
+  ['plat','tone'].forEach(id => {
+    document.getElementById(id).querySelectorAll('.chip').forEach(c => {
+      c.onclick = () => {
+        document.getElementById(id).querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+        c.classList.add('on');
+        if (id === 'plat') platform = c.dataset.v;
+        else tone = c.dataset.v;
+      };
+    });
+  });
+
+  async function generate() {
+    if (!apiKey) {
+      document.getElementById('api-body').classList.add('open');
+      document.getElementById('api-key-input').focus();
+      return;
+    }
+    const topic = document.getElementById('topic').value.trim();
+    if (!topic) { document.getElementById('topic').focus(); return; }
+
+    const btn = document.getElementById('gen-btn');
+    btn.disabled = true; btn.textContent = '生成中...';
+
+    const out = document.getElementById('output');
+    out.innerHTML = '<div class="divider"></div><div class="loading"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><span>AIが考えています...</span></div>';
+
+    const prompt = `あなたはSNSマーケティングの専門家です。以下の情報をもとに、${platform}向けの投稿文を3パターン作成してください。
+
+【内容】${topic}
+【トーン】${tone}
+
+ルール：
+- ${platform}に最適な文字数・形式
+- 絵文字を適切に使う
+- ハッシュタグを3〜5個含める
+- 各パターンは「---」のみの行で区切る
+- ラベルや説明は不要。投稿文だけ出力する`;
+
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const text = data.candidates[0].content.parts[0].text;
+      const patterns = text.split(/\n---\n/).map(s => s.trim()).filter(Boolean);
+      const labels = ['パターン A', 'パターン B', 'パターン C'];
+
+      out.innerHTML = '<div class="divider"></div><div class="results">' +
+        patterns.map((p, i) => `
+          <div class="result-card">
+            <div class="result-header">
+              <span class="result-label">${labels[i] || '案 '+(i+1)} — ${platform}</span>
+              <button class="copy-btn" onclick="copyIt(this, ${JSON.stringify(p)})">コピー</button>
+            </div>
+            <div class="result-text">${esc(p)}</div>
+          </div>
+        `).join('') + '</div>';
+    } catch(e) {
+      out.innerHTML = `<div class="divider"></div><div class="error-msg">エラー：${e.message}<br>APIキーを確認してください。</div>`;
+    }
+    btn.disabled = false; btn.textContent = '✦ 投稿文を生成する';
+  }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function copyIt(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'コピー済み ✓'; btn.classList.add('done');
+      setTimeout(() => { btn.textContent = 'コピー'; btn.classList.remove('done'); }, 2000);
+    });
+  }
+</script>
+</body>
+</html>
